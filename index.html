@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mobile Sales Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: radial-gradient(circle at 60% 40%, #ff4000 0%, #ff4000 40%, rgb(255, 40, 2) 100%);
+      box-shadow: 0 0 0 100vw #000000 inset;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      overflow-x: hidden;
+    }
+    h1 {
+      color: #fff;
+      text-shadow: 0 4px 24px #ff9800, 0 1px 0 #000000;
+      margin-top: 32px;
+      margin-bottom: 18px;
+      font-size: 2.1em;
+      letter-spacing: 2px;
+    }
+    .products {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 18px;
+      width: 100vw;
+      max-width: 500px;
+      margin-bottom: 30px;
+    }
+    .product-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 22px;
+      box-shadow: 0 6px 32px 0 #ff980055, 0 1.5px 0 #ff9800;
+      padding: 18px 14px 14px 14px;
+      min-width: 140px;
+      flex: 1 1 140px;
+      max-width: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      transition: box-shadow 0.2s;
+    }
+    .product-card:active {
+      box-shadow: 0 2px 12px 0 #ff9800aa, 0 1.5px 0 #ff9800;
+    }
+    .product-name {
+      font-size: 1.1em;
+      font-weight: 600;
+      color: #ff9800;
+      margin-bottom: 6px;
+      text-align: center;
+      text-shadow: 0 1px 0 #fff2e0;
+    }
+    .product-price {
+      font-size: 1em;
+      color: #b85c00;
+      margin-bottom: 10px;
+    }
+    .counter {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .count {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #ff9800;
+      min-width: 32px;
+      text-align: center;
+      text-shadow: 0 1px 0 #fff2e0;
+    }
+    .btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #fff;
+      background: linear-gradient(145deg, #ff9800 60%, #ff0000 100%);
+      box-shadow: 0 2px 8px #ff980088;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+      outline: none;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn:active {
+      background: linear-gradient(145deg, #ffb347 60%, #ff9800 100%);
+      box-shadow: 0 1px 4px #ff9800aa;
+    }
+    .summary {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 2px 12px #ff9800, 0 1px 0 #b85c00;
+      margin-bottom: 24px;
+      margin-top: 10px;
+      letter-spacing: 1px;
+      text-align: center;
+    }
+    @media (max-width: 600px) {
+      .products {
+        gap: 10px;
+        max-width: 100vw;
+      }
+      .product-card {
+        min-width: 44vw;
+        max-width: 48vw;
+        padding: 12px 6px 10px 6px;
+      }
+      h1 {
+        font-size: 1.3em;
+        margin-top: 18px;
+      }
+      .summary {
+        font-size: 1.1em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Sales Tracker</h1>
+  <div class="products" id="products"></div>
+  <div class="summary">Total Earnings: ₱<span id="totalEarnings">0</span></div>
+  <script>
+    const products = [
+      { name: "Buko-Loko", price: 15 },
+      { name: "Spinach-saya", price: 20 },
+      { name: "Mang-ghost", price: 15 },
+      { name: "Saging-sayo", price: 15 },
+      { name: "Ikaw Pa-still", price: 20 },
+      { name: "Pina-saya", price: 15 },
+      { name: "Assorted Pack", price: 89 }
+    ];
+    let counts = Array(products.length).fill(0);
+    let totalEarnings = 0;
+    const productsDiv = document.getElementById('products');
+    const totalEarningsEl = document.getElementById('totalEarnings');
+
+    function renderProducts() {
+      productsDiv.innerHTML = '';
+      products.forEach((prod, i) => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+          <div class="product-name">${prod.name}</div>
+          <div class="product-price">₱${prod.price}</div>
+          <div class="counter">
+            <button class="btn btn-minus" aria-label="Minus">−</button>
+            <span class="count" id="count-${i}">0</span>
+            <button class="btn btn-plus" aria-label="Plus">+</button>
+          </div>
+        `;
+        // Add event listeners
+        card.querySelector('.btn-plus').addEventListener('click', () => {
+          counts[i]++;
+          totalEarnings += prod.price;
+          updateDisplay(i);
+        });
+        card.querySelector('.btn-minus').addEventListener('click', () => {
+          if (counts[i] > 0) {
+            counts[i]--;
+            totalEarnings -= prod.price;
+            updateDisplay(i);
+          }
+        });
+        productsDiv.appendChild(card);
+      });
+    }
+    function updateDisplay(idx) {
+      document.getElementById('count-' + idx).textContent = counts[idx];
+      totalEarningsEl.textContent = totalEarnings;
+    }
+    renderProducts();
+  </script>
+</body>
+</html>
