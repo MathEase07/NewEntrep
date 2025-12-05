@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>File Storage Tracker</title>
 
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
+
 <style>
     body {
         margin: 0;
@@ -33,18 +36,13 @@
         transition: 0.3s;
     }
 
-    .container:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 12px 25px rgba(0,0,0,0.15);
-    }
-
     label {
         font-weight: 600;
         margin-top: 10px;
         display: block;
     }
 
-    input, textarea {
+    input, textarea, select {
         width: 100%;
         padding: 12px;
         margin-top: 6px;
@@ -52,41 +50,19 @@
         border: 1px solid #b8c7e0;
         font-size: 15px;
         outline: none;
-        transition: 0.2s;
-    }
-
-    input:focus, textarea:focus {
-        border-color: #1d4ed8;
-        box-shadow: 0 0 10px rgba(29, 78, 216, 0.3);
     }
 
     button {
         background: #1d4ed8;
         color: white;
-        padding: 12px 20px;
+        padding: 10px 18px;
         border: none;
         border-radius: 10px;
         margin-top: 15px;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 14px;
         transition: 0.3s;
         box-shadow: 0 5px 15px rgba(29,78,216,0.4);
-    }
-
-    button:hover {
-        background: #153eac;
-        transform: translateY(-2px);
-    }
-
-    #searchBar {
-        width: 100%;
-        padding: 15px;
-        font-size: 18px;
-        margin-top: 40px;
-        border-radius: 12px;
-        border: 2px solid #1d4ed8;
-        outline: none;
-        box-shadow: 0 4px 10px rgba(29,78,216,0.3);
     }
 
     .file-card {
@@ -95,23 +71,14 @@
         margin-top: 20px;
         border-radius: 14px;
         box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-        transition: 0.3s;
     }
 
-    .file-card:hover {
-        transform: scale(1.02);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    .actions button {
+        margin-right: 10px;
     }
 
-    .title {
-        font-size: 22px;
-        font-weight: 700;
-        color: #1d4ed8;
-    }
-
-    .info {
-        margin-top: 8px;
-        line-height: 1.6;
+    .pagination button {
+        margin: 10px 5px 0 0;
     }
 </style>
 </head>
@@ -120,7 +87,9 @@
 <header>📁 File Storage Tracker</header>
 
 <div class="container">
-    <h2>Add New File</h2>
+    <h2>Add or Edit File</h2>
+
+    <input type="hidden" id="editId">
 
     <label>Title:</label>
     <input type="text" id="title">
@@ -128,59 +97,168 @@
     <label>Storage Number / Location:</label>
     <input type="text" id="storage">
 
-    <label>Extra Information (optional):</label>
+    <label>Extra Information:</label>
     <textarea id="info" rows="4"></textarea>
 
-    <button onclick="addFile()">Upload File</button>
+    <button onclick="saveFile()">Save File</button>
 </div>
 
 <div class="container">
-    <h2>Search Files</h2>
-    <input type="text" id="searchBar" placeholder="Search by title..." onkeyup="searchFiles()">
+    <h2>Search & Sort</h2>
+
+    <input type="text" id="searchBar" placeholder="Search by title..." onkeyup="refreshDisplay()">
+
+    <label>Sort by:</label>
+    <select id="sortOptions" onchange="refreshDisplay()">
+        <option value="title">Title (A–Z)</option>
+        <option value="storage">Storage (A–Z)</option>
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+    </select>
+
     <div id="results"></div>
+    <div class="pagination" id="pagination"></div>
 </div>
 
 <script>
-    let files = [];
+    const firebaseConfig = {
+  apiKey: "xxxx",
+  authDomain: "xxxx.firebaseapp.com",
+  databaseURL: "https://xxxx-default-rtdb.firebaseio.com",
+  projectId: "xxxx",
+  storageBucket: "xxxx.appspot.com",
+  messagingSenderId: "xxxx",
+  appId: "xxxx"
+};
+    const firebaseConfig = {
+        apiKey: "",
+        authDomain: "",
+        databaseURL: "",
+        projectId: "",
+        storageBucket: "",
+        messagingSenderId: "",
+        appId: ""
+    };
 
-    function addFile() {
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let allFiles = {};
+    let currentPage = 1;
+    const itemsPerPage = 5;
+
+    // LOAD DATA IN REAL TIME
+    db.ref("files").on("value", snapshot => {
+        allFiles = snapshot.val() || {};
+        refreshDisplay();
+    });
+
+    function saveFile() {
         const title = document.getElementById("title").value;
         const storage = document.getElementById("storage").value;
         const info = document.getElementById("info").value;
+        const editId = document.getElementById("editId").value;
 
         if (!title || !storage) {
             alert("Title and Storage are required!");
             return;
         }
 
-        files.push({ title, storage, info });
+        const id = editId ? editId : db.ref().push().key;
 
+        db.ref("files/" + id).set({
+            id,
+            title,
+            storage,
+            info,
+            timestamp: Date.now()
+        });
+
+        alert(editId ? "File updated!" : "File added!");
+
+        document.getElementById("editId").value = "";
         document.getElementById("title").value = "";
         document.getElementById("storage").value = "";
         document.getElementById("info").value = "";
-
-        alert("File uploaded!");
     }
 
-    function searchFiles() {
-        const query = document.getElementById("searchBar").value.toLowerCase();
-        const resultsDiv = document.getElementById("results");
-        resultsDiv.innerHTML = "";
+    function editFile(id) {
+        const file = allFiles[id];
 
-        const filtered = files.filter(f => f.title.toLowerCase().includes(query));
+        document.getElementById("editId").value = id;
+        document.getElementById("title").value = file.title;
+        document.getElementById("storage").value = file.storage;
+        document.getElementById("info").value = file.info;
+    }
 
-        filtered.forEach(file => {
+    function deleteFile(id) {
+        if (confirm("Delete this file?")) {
+            db.ref("files/" + id).remove();
+        }
+    }
+
+    function refreshDisplay() {
+        const results = document.getElementById("results");
+        results.innerHTML = "";
+
+        const search = document.getElementById("searchBar").value.toLowerCase();
+        const sort = document.getElementById("sortOptions").value;
+
+        // Convert object to array
+        let filesArr = Object.values(allFiles);
+
+        // Filter
+        filesArr = filesArr.filter(f => f.title.toLowerCase().includes(search));
+
+        // Sorting
+        if (sort === "title") filesArr.sort((a, b) => a.title.localeCompare(b.title));
+        if (sort === "storage") filesArr.sort((a, b) => a.storage.localeCompare(b.storage));
+        if (sort === "newest") filesArr.sort((a, b) => b.timestamp - a.timestamp);
+        if (sort === "oldest") filesArr.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Pagination
+        const totalPages = Math.ceil(filesArr.length / itemsPerPage);
+        if (currentPage > totalPages) currentPage = totalPages || 1;
+
+        const start = (currentPage - 1) * itemsPerPage;
+        const pageItems = filesArr.slice(start, start + itemsPerPage);
+
+        pageItems.forEach(file => {
             const card = document.createElement("div");
             card.className = "file-card";
 
             card.innerHTML = `
-                <div class="title">${file.title}</div>
-                <div class="info"><b>Storage:</b> ${file.storage}</div>
-                <div class="info"><b>Info:</b> ${file.info || "None"}</div>
+                <div><b>Title:</b> ${file.title}</div>
+                <div><b>Storage:</b> ${file.storage}</div>
+                <div><b>Info:</b> ${file.info || "None"}</div>
+
+                <div class="actions">
+                    <button onclick="editFile('${file.id}')">Edit</button>
+                    <button onclick="deleteFile('${file.id}')" style="background:#d9534f;">Delete</button>
+                </div>
             `;
 
-            resultsDiv.appendChild(card);
+            results.appendChild(card);
         });
+
+        // PAGINATION BUTTONS
+        const pag = document.getElementById("pagination");
+        pag.innerHTML = "";
+
+        if (totalPages > 1) {
+            if (currentPage > 1)
+                pag.innerHTML += `<button onclick="changePage(${currentPage - 1})">Previous</button>`;
+
+            pag.innerHTML += `<b> Page ${currentPage} of ${totalPages} </b>`;
+
+            if (currentPage < totalPages)
+                pag.innerHTML += `<button onclick="changePage(${currentPage + 1})">Next</button>`;
+        }
+    }
+
+    function changePage(page) {
+        currentPage = page;
+        refreshDisplay();
     }
 </script>
 
